@@ -6,7 +6,6 @@ app = Flask(__name__)
 help_cmd = 'עזרה'
 help_msg = 'אהלן, אני קניבוט.\n פקודות:\n"עזרה": לקבלת הודעה זו\n"שלח": לשליחת הרשימה\n "תרשום": להוספת מוצרים לרשימה'
 send_cmd = 'שלח'
-send_msg = 'a.\nb.\nc.'
 write_cmd = 'תרשום'
 write_msg = '📝'
 
@@ -17,7 +16,13 @@ def bot():
     resp = MessagingResponse()
     msg = resp.message()
     if help_cmd in incoming_msg: msg.body(help_msg)
-    elif send_cmd in incoming_msg: msg.body(send_msg)
+    elif send_cmd in incoming_msg:
+        conn = sqlite3.connect('./knibot.db')
+        c = conn.cursor()
+        c.execute('SELECT * FROM items')
+        items = c.fetchall()
+        msg.body('\n'.join(str(i[0]) + ': ' + i[2] + ' (' + i[1] + ')' for i in items))
+        conn.close()
     else: msg.body(incoming_msg + ' you')
     # return a quote
     # r = requests.get('https://api.quotable.io/random')
@@ -28,11 +33,15 @@ def bot():
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect('./knibot.db')
-    c = conn.cursor()
-    c.execute('CREATE TABLE items ('
-              'index INTEGER PRIMARY KEY'
-              'name TEXT NOT NULL,'
-              'request_by INTEGER)')
-    conn.commit()
-    # app.run()
+    # conn = sqlite3.connect('./knibot.db')
+    # c = conn.cursor()
+    # c.execute('DROP TABLE IF EXISTS items')
+    # c.execute('CREATE TABLE items ('
+    #           'id INTEGER PRIMARY KEY,'
+    #           'name TEXT NOT NULL,'
+    #           'request_by INTEGER)')
+    # c.execute('SELECT * FROM items')
+    # items = c.fetchall()
+    # print('\n'.join(str(i[0]) + ': ' + i[2] + ' (' + i[1] + ')' for i in items))
+    # conn.commit()
+    app.run()
