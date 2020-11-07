@@ -13,6 +13,8 @@ write_msg = '📝'
 writing = False
 finish_cmd = 'זהו'
 failed_msg = 'אופס חלה אצלי תקלה'
+bought_command = 'קניתי'
+bought_msg = 'סגור איפסתי את הרשימה'
 
 
 @app.route('/bot', methods=['POST'])
@@ -28,12 +30,19 @@ def bot():
             conn = sqlite3.connect('./knibot.db')
             c = conn.cursor()
             c.execute('SELECT * FROM items')
-            items = c.fetchall()
-            msg.body('\n'.join(str(i) + ': ' + r[0] + ' (' + str(r[1]) + ')' for i, r in enumerate(items)))
+            items = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[1]) + ')'
+                              for i, r in enumerate(c.fetchall()))
             conn.close()
+            msg.body(items if items != '' else 'הרשימה ריקה')
         elif write_cmd in incoming_msg:
             writing = True
             msg.body(write_msg)
+        elif bought_command in incoming_msg:
+            conn = sqlite3.connect('./knibot.db')
+            c = conn.cursor()
+            c.execute('DELETE FROM items')
+            conn.commit()
+            msg.body(bought_msg)
         elif writing:
             if finish_cmd in incoming_msg:
                 writing = False
