@@ -3,19 +3,23 @@ import re
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
+import commands
 from groups import *
 import prompts
 
 app = Flask(__name__)
 writing = False
-write_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.write_cmd)
+write_re = re.compile(r'%s(\s+([^,]+,)*[^,]+)?' % prompts.write_cmd)
 instead_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.instead_cmd)
 remove_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.remove_cmd)
-list_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.list_cmd)
-new_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.new_cmd)
+list_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]+)' % prompts.list_cmd)
+new_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]+)' % prompts.new_cmd)
+items_re = re.compile(r'(([^,]+,)*[^,]+)?')
 
 
 def bot_test(user, incoming_msg):
+    global writing
+    incoming_msg = re.sub(r'\s+', ' ', incoming_msg)
     msg = ''
     try:
         new_match = new_re.search(incoming_msg)
@@ -23,18 +27,35 @@ def bot_test(user, incoming_msg):
             list_name = new_match.group(1)
             create_list(user, list_name)
             incoming_msg = new_re.sub(list_name, incoming_msg)
-            msg = prompts.new_msg % list_name
+            msg += prompts.new_msg % list_name
         list_match = list_re.search(incoming_msg)
         if list_match is not None:
             list_name = list_match.group(1)
             set_working_list(user, list_name)
             msg += prompts.list_msg % list_name if msg == '' else prompts.new_list_msg
+        write_match = write_re.search(incoming_msg)
+        if write_match is not None:
+            items_raw = write_match.group(1)
+            if items_raw is not None:
+                exc = commands.write(user, items_raw)
+                msg += prompts.finish_msg if exc is None else exc
+            else:
+                msg += prompts.write_msg
+                writing = True
+        elif writing:
+            msg += commands.write(user, write_match.group(1))
+        if prompts.send_cmd in incoming_msg:
+            items_raw = get_list_items(user)
+            items_text = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[1]) + ')'
+                                   for i, r in enumerate(items_raw)) + '\n'
+            msg += prompts.send_msg + items_text
+
     except Exception as e:
         msg = str(e)
     finally:
         resp = MessagingResponse()
-        resp.message().body(msg)
-        print(msg)
+        resp.message().body(msg.strip())
+        print(msg.strip())
         return str(resp)
 
 
@@ -83,4 +104,4 @@ def bot():
 #   deploy to an actual server
 
 if __name__ == '__main__':
-    print(bot_test(100, 'חדשה חברים'))
+    print(bot_test(100, 'שלח'))

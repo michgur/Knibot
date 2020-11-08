@@ -76,7 +76,7 @@ def get_working_list(user, c):
     return working_list[0]
 
 
-def add_items(user, *items):
+def add_items(user, items):
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         working_list = get_working_list(user, c)
@@ -84,12 +84,12 @@ def add_items(user, *items):
         c.execute('INSERT INTO items (name, list_id, request_by) VALUES %s' % values)
 
 
-def remove_items(user, *items):
+def remove_items(user, items):
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         working_list = get_working_list(user, c)
         values = ', '.join('"%s"' % i for i in items)
-        c.execute('DELETE FROM items WHERE list_id=%i AND item_name IN (%s)'
+        c.execute('DELETE FROM items WHERE list_id=%i AND name IN (%s)'
                   % (working_list, values))
 
 
