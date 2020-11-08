@@ -29,7 +29,13 @@ class knibot_db:
         return ClosingConnection(cls.path, commit)
 
 
+STATE_DEFAULT = 0
+STATE_WRITING = 1
+STATE_ERASING = 2
+
+
 def create_list(user, list_name):
+    print('%i is creating a new list %s' % (user, list_name))
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM lists WHERE id IN ('
@@ -45,6 +51,7 @@ def create_list(user, list_name):
 
 
 def add_users_to_list(list_name, users, admins=None):
+    print('adding users %s to list %s' % (str(users), list_name))
     if admins is None:
         admins = []
     with knibot_db.connect(commit=True) as conn:
@@ -55,7 +62,8 @@ def add_users_to_list(list_name, users, admins=None):
         c.execute('INSERT INTO listsForUsers (list_id, user_id, admin) VALUES %s' % values)
 
 
-def set_working_list(user, list_name):
+def set_working_list(user, list_name, state=0):
+    print('setting %s as working list for user %i' % (list_name, user))
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         c.execute('SELECT id FROM lists WHERE id IN ('
@@ -64,8 +72,8 @@ def set_working_list(user, list_name):
         working_list = c.fetchone()
         if working_list is None:
             raise ValueError(prompts.not_exists_err % list_name)
-        c.execute('REPLACE INTO workingLists (user_id, list_id) VALUES (?, ?)',
-                  (user, working_list[0]))
+        c.execute('REPLACE INTO workingLists (user_id, list_id, state) VALUES (?, ?, ?)',
+                  (user, working_list[0], state))
 
 
 def get_working_list(user, c):
@@ -76,7 +84,26 @@ def get_working_list(user, c):
     return working_list[0]
 
 
+def set_working_state(user, state):
+    print('setting working state for user %i as %s' % (user, {0: 'default', 1: 'write', 2: 'erase'}[state]))
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        c.execute('UPDATE workingLists SET state=? WHERE user_id=?', (state, user))
+
+
+def get_working_state(user):
+    print('fetching working state for user %i' % user)
+    with knibot_db.connect() as conn:
+        c = conn.cursor()
+        c.execute('SELECT state FROM workingLists WHERE user_id=?', (user,))
+        state = c.fetchone()
+        if state is None:
+            raise ValueError(prompts.no_working_list_err)
+        return state[0]
+
+
 def add_items(user, items):
+    print('user %i is adding items %s' % (user, str(items)))
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         working_list = get_working_list(user, c)
@@ -85,6 +112,7 @@ def add_items(user, items):
 
 
 def remove_items(user, items):
+    print('user %i is removing items %s' % (user, str(items)))
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         working_list = get_working_list(user, c)
@@ -94,17 +122,39 @@ def remove_items(user, items):
 
 
 def remove_all_items(user):
+    print('user %i is removing all items' % user)
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         c.execute('DELETE FROM items WHERE list_id=%i' % get_working_list(user, c))
 
 
+def remove_all_items_but(user, items):
+    print('user %i is removing all items but %s' % (user, str(items)))
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        values = ', '.join('"%s"' % i for i in items)
+        c.execute('DELETE FROM items WHERE list_id=%i AND name NOT IN (%s)' %
+                  (working_list, values))
+
+
 def get_list_items(user):
+    print('fetching list items for user %i' % user)
     with knibot_db.connect() as conn:
         c = conn.cursor()
         working_list = get_working_list(user, c)
         c.execute('SELECT * FROM items WHERE list_id=%i' % working_list)
         return c.fetchall()
+
+
+def get_existing_items(user, items):
+    print('fetching items from %s that already exist' % str(items))
+    with knibot_db.connect() as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        values = ', '.join('"%s"' % i for i in items)
+        c.execute('SELECT name FROM items WHERE list_id=%i AND name IN (%s)' % (working_list, values))
+        return [item[0] for item in c.fetchall()]
 
 
 # c.execute('CREATE TABLE lists ('
@@ -123,11 +173,13 @@ def get_list_items(user):
 # c.execute('CREATE TABLE workingLists ('
 #           'user_id INTEGER UNIQUE,'
 #           'list_id INTEGER,'
+#           'state INTEGER,'
 #           'FOREIGN KEY(list_id) REFERENCES lists(id))')
 if __name__ == '__main__':
-    with knibot_db.connect(commit=True) as conn:
-        c = conn.cursor()
-        c.execute('DELETE FROM listsForUsers')
-        c.execute('DELETE FROM lists')
-        c.execute('DELETE FROM items')
-        c.execute('DELETE FROM workingLists')
+    pass
+    # with knibot_db.connect(commit=True) as conn:
+    #     c = conn.cursor()
+        # c.execute('DELETE FROM listsForUsers')
+        # c.execute('DELETE FROM lists')
+        # c.execute('DELETE FROM items')
+        # c.execute('DELETE FROM workingLists')
