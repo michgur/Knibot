@@ -11,7 +11,7 @@ app = Flask(__name__)
 writing = False
 write_re = re.compile(r'%s(\s+([^,]+,)*[^,]+)?' % prompts.write_cmd)
 instead_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.instead_cmd)
-remove_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]*)' % prompts.remove_cmd)
+remove_re = re.compile(r'%s(\s+([^,]+,)*[^,]+)?' % prompts.remove_cmd)
 list_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]+)' % prompts.list_cmd)
 new_re = re.compile(r'%s\s+([a-zA-Z0-9-_\u05D0-\u05EA]+)' % prompts.new_cmd)
 items_re = re.compile(r'(([^,]+,)*[^,]+)?')
@@ -27,81 +27,66 @@ def bot_test(user, incoming_msg):
             list_name = new_match.group(1)
             create_list(user, list_name)
             incoming_msg = new_re.sub(list_name, incoming_msg)
-            msg += prompts.new_msg % list_name
+            msg += (prompts.new_msg % list_name) + '\n'
         list_match = list_re.search(incoming_msg)
         if list_match is not None:
             list_name = list_match.group(1)
             set_working_list(user, list_name)
-            msg += prompts.list_msg % list_name if msg == '' else prompts.new_list_msg
+            msg += (prompts.list_msg % list_name if msg == '' else prompts.new_list_msg) + '\n'
         write_match = write_re.search(incoming_msg)
         if write_match is not None:
             items_raw = write_match.group(1)
             if items_raw is not None:
                 exc = commands.write(user, items_raw)
-                msg += prompts.finish_msg if exc is None else exc
+                msg += (prompts.finish_msg if exc is None else exc) + '\n'
             else:
-                msg += prompts.write_msg
+                msg += prompts.write_msg + '\n'
                 writing = True
-        elif writing:
-            msg += commands.write(user, write_match.group(1))
+        elif writing and msg == '':
+            if prompts.finish_cmd in incoming_msg:
+                msg += prompts.finish_msg
+                writing = False
+            else:
+                exc = commands.write(user, incoming_msg)
+                if exc is not None:
+                    msg += exc
+        remove_match = remove_re.search(incoming_msg)
+        if remove_match is not None:
+            items_raw = remove_match.group(1)
+            if items_raw is not None:
+                exc = commands.write(user, items_raw)
+                msg += (prompts.remove_msg if exc is None else exc) + '\n'
         if prompts.send_cmd in incoming_msg:
             items_raw = get_list_items(user)
-            items_text = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[1]) + ')'
-                                   for i, r in enumerate(items_raw)) + '\n'
-            msg += prompts.send_msg + items_text
+            items_text = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[2]) + ')'
+                                   for i, r in enumerate(items_raw))
+            msg += (prompts.send_msg + items_text if items_text != '' else 'הרשימה ריקה') + '\n'
+        if prompts.bought_cmd in incoming_msg:
+            remove_all_items(user)
+            msg += prompts.bought_msg + '\n'
 
     except Exception as e:
         msg = str(e)
     finally:
-        resp = MessagingResponse()
-        resp.message().body(msg.strip())
-        print(msg.strip())
-        return str(resp)
+        return msg.strip()
 
 
 @app.route('/bot', methods=['POST'])
 def bot():
-    global writing
     incoming_msg = request.values.get('Body', '').lower()
     user = int(re.search(r'\d+', request.values.get('From')).group())
     resp = MessagingResponse()
     msg = resp.message()
-    try:
-        if prompts.debug_cmd in incoming_msg:
-            print(incoming_msg)
-            msg.body('received debug info')
-        elif prompts.help_cmd in incoming_msg:
-            msg.body(prompts.help_msg)
-        elif prompts.send_cmd in incoming_msg:
-            items_raw = get_list_items(user)
-            items = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[1]) + ')'
-                              for i, r in enumerate(items_raw))
-            msg.body(prompts.send_msg + items if items != '' else 'הרשימה ריקה')
-        elif prompts.write_cmd in incoming_msg:
-            writing = True
-            msg.body(prompts.write_msg)
-        elif prompts.bought_cmd in incoming_msg:
-            remove_all_items(user)
-            msg.body(prompts.bought_msg)
-        elif writing:
-            if prompts.finish_cmd in incoming_msg:
-                writing = False
-                msg.body('אוקי')
-            else:
-                add_items(user, incoming_msg)
-        else:
-            msg.body(incoming_msg + ' you')
-    except Exception as e:
-        msg.body(prompts.failed_msg + ' ' + str(e))
+    msg.body(bot_test(user, incoming_msg))
     return str(resp)
 
 
 # todo:
-#   tidier restful code structure
-#   better command parsing using re. a clear & uniform syntax for different commands
-#   manage different users & lists
+#   SOMEWHAT DONE tidier restful code structure
+#   better command parsing using tokenization, not RE
+#   DONE manage different users & lists
 #   look into whatsapp message formatting for cooler interface
 #   deploy to an actual server
 
 if __name__ == '__main__':
-    print(bot_test(100, 'שלח'))
+    app.run()
