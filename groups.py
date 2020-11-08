@@ -45,14 +45,26 @@ def add_user_to_list(user, list_name, admin=False):
                   '?, ?, ?)', (c.fetchall()[0][0], user, 1 if admin else 0))
 
 
+def set_working_list(user, list_name):
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        c.execute('SELECT id FROM lists WHERE name="%s"' % list_name)
+        c.execute('REPLACE INTO workingLists (user_id, list_id) VALUES (?, ?)',
+                  (user, c.fetchone()[0]))
+
+
 if __name__ == '__main__':
     # create_list('assholes')
     # add_user_to_list(1411, 'assholes', True)
     # add_user_to_list(487834, 'assholes', False)
+    set_working_list(1411, 'friends')
+    set_working_list(1411, 'assholes')
+    set_working_list(487834, 'friends')
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
         # c.execute('DROP TABLE IF EXISTS lists')
         # c.execute('DROP TABLE IF EXISTS listsForUsers')
+        # c.execute('DROP TABLE IF EXISTS workingLists')
         # c.execute('CREATE TABLE lists ('
         #           'id INTEGER PRIMARY KEY,'
         #           'name TEXT NOT NULL)')
@@ -68,7 +80,14 @@ if __name__ == '__main__':
         #           'SELECT list_id FROM listsForUsers WHERE user_id=972502057283)')
         # # select all users in a list
         # c.execute('SELECT user_id FROM listsForUsers WHERE list_id=0')
-        c.execute('SELECT * FROM lists')
-        print('lists: ' + str(c.fetchall()))
-        c.execute('SELECT * FROM listsForUsers')
-        print('listsForUsers: ' + str(c.fetchall()))
+        # c.execute('CREATE TABLE items ('
+        #           'name TEXT NOT NULL,'
+        #           'list_id INTEGER,'
+        #           'request_by INTEGER,'
+        #           'FOREIGN KEY(list_id) REFERENCES lists(id))')
+        # c.execute('CREATE TABLE workingLists ('
+        #           'user_id INTEGER UNIQUE,'
+        #           'list_id INTEGER,'
+        #           'FOREIGN KEY(list_id) REFERENCES lists(id))')
+        c.execute('SELECT * FROM workingLists')
+        print(c.fetchall())
