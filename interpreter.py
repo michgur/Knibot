@@ -1,6 +1,6 @@
 import re
 
-from groups import *
+from database import *
 
 
 class _token_labels:
@@ -20,6 +20,8 @@ class _token_labels:
     BOUGHT = 17
     TURN_INTO = 18
     ADMIN = 19
+    HELP = 20
+    USERS = 21
 
     operators = {
         'שלח': SEND,
@@ -45,6 +47,8 @@ class _token_labels:
         'למנהלת': ADMIN,
         'למנהלים': ADMIN,
         'למנהלות': ADMIN,
+        'עזרה': HELP,
+        'משתתפים': USERS,
     }
     name_re = re.compile(r'[^,]+')
 
@@ -80,23 +84,21 @@ def _list_string_hebrew(items):
     return ', '.join(items[:-1]) + ' ' + prompts.vav + items[-1] if len(items) > 1 else items[0]
 
 
-def _add_tokenized_items(user, tokens, add_fn=add_items, rmv_fn=remove_items):
+def _add_tokenized_items(user, tokens, add_fn=knibot_db.add_items, rmv_fn=knibot_db.remove_items):
     cmds, items = zip(*tokens)
     if rmv_fn is not None and _token_labels.INSTEAD in cmds:
         instead_index = cmds.index(_token_labels.INSTEAD)
         rmv_fn(user, items[instead_index + 1:])
         items = items[:instead_index]
-    existing = get_existing_items(user, items)
+    existing = knibot_db.get_existing_items(user, items)
     non_existing = [i for i in items if i not in existing]
     add_fn(user, non_existing)
-    if len(existing) == 0:
-        return ''
-    else:
-        return prompts.existing_item_err % _list_string_hebrew(existing)
+    return prompts.existing_item_err % _list_string_hebrew(existing) if len(existing) > 0 else ''
 
 
-def _remove_tokenized_items(user, tokens, rmv_fn=remove_items,
-                            rmv_all_fn=remove_all_items, rmv_all_but_fn=remove_all_items_but):
+def _remove_tokenized_items(user, tokens, rmv_fn=knibot_db.remove_items,
+                            rmv_all_fn=knibot_db.remove_all_items,
+                            rmv_all_but_fn=knibot_db.remove_all_items_but):
     cmds, items = zip(*tokens)
     if cmds[0] == _token_labels.ALL:
         if len(cmds) > 2 and cmds[1] == _token_labels.EXCEPT:
@@ -107,7 +109,7 @@ def _remove_tokenized_items(user, tokens, rmv_fn=remove_items,
         else:
             rmv_all_fn(user)
     else:
-        existing = get_existing_items(user, items)
+        existing = knibot_db.get_existing_items(user, items)
         non_existing = [i for i in items if i not in existing]
         rmv_fn(user, existing)
         if len(non_existing) == 1:
@@ -117,8 +119,8 @@ def _remove_tokenized_items(user, tokens, rmv_fn=remove_items,
     return ''
 
 
-def admin_check(user):
-    if not is_admin(user):
+def _admin_check(user):
+    if not knibot_db.is_admin(user):
         raise PermissionError(prompts.not_admin_err)
 
 
@@ -128,36 +130,37 @@ def run_command(user, message):
         cmd = tokens[0][0]
 
         if cmd == _token_labels.NAME:
-            state = get_working_state(user)
-            if state == STATE_WRITING:
+            state = knibot_db.get_working_state(user)
+            if state == knibot_db.STATE_WRITING:
                 return _add_tokenized_items(user, tokens)
-            elif state == STATE_ERASING:
+            elif state == knibot_db.STATE_ERASING:
                 return _remove_tokenized_items(user, tokens)
             else:
                 return prompts.default_working_state_err
 
         if cmd == _token_labels.SEND:
-            items_raw = get_list_items(user)
+            users = len(tokens) > 1 and tokens[1][0] == _token_labels.USERS
+            items_raw = knibot_db.get_list_users(user) if users else knibot_db.get_list_items(user)
             items_text = '\n'.join(str(i + 1) + ': ' + r[0] + ' (' + str(r[2]) + ')'
                                    for i, r in enumerate(items_raw))
             return prompts.send_msg + items_text if items_text != '' else prompts.empty_list_err
 
         if cmd == _token_labels.LIST:
             if tokens[1][0] == _token_labels.NEW:
-                create_list(user, tokens[2][1])
-                set_working_list(user, tokens[2][1])
+                knibot_db.create_list(user, tokens[2][1])
+                knibot_db.set_working_list(user, tokens[2][1])
                 return prompts.new_list_msg % tokens[2][1]
             else:
-                set_working_list(user, tokens[1][1])
+                knibot_db.set_working_list(user, tokens[1][1])
                 return prompts.list_msg % tokens[1][1]
 
         if cmd == _token_labels.NEW:
-            create_list(user, tokens[1][1])
+            knibot_db.create_list(user, tokens[1][1])
             return prompts.new_msg % tokens[1][1]
 
         if cmd == _token_labels.WRITE:
             if len(tokens) == 1:
-                set_working_state(user, STATE_WRITING)
+                knibot_db.set_working_state(user, knibot_db.STATE_WRITING)
                 return prompts.write_msg
             else:
                 return prompts.finish_write_msg + ' ' + \
@@ -165,16 +168,17 @@ def run_command(user, message):
 
         if cmd == _token_labels.ERASE:
             if len(tokens) == 1:
-                set_working_state(user, STATE_ERASING)
+                knibot_db.set_working_state(user, knibot_db.STATE_ERASING)
                 return prompts.remove_msg
             else:
                 return prompts.finish_remove_msg + ' ' + \
                        _remove_tokenized_items(user, tokens[1:])
 
         if cmd == _token_labels.FINISH:
-            state = get_working_state(user)
-            set_working_state(user, STATE_DEFAULT)
-            return prompts.finish_write_msg if state == STATE_WRITING else prompts.finish_remove_msg
+            state = knibot_db.get_working_state(user)
+            knibot_db.set_working_state(user, knibot_db.STATE_DEFAULT)
+            return prompts.finish_write_msg if state == knibot_db.STATE_WRITING \
+                else prompts.finish_remove_msg
 
         if cmd == _token_labels.BOUGHT:
             if len(tokens) == 1:
@@ -183,13 +187,18 @@ def run_command(user, message):
                    _remove_tokenized_items(user, tokens[1:])
 
         if cmd == _token_labels.SHARE:
-            _add_tokenized_items(user, tokens[1:], add_users_to_list, remove_users_from_list)
+            _add_tokenized_items(user, tokens[1:],
+                                 knibot_db.add_users_to_list, knibot_db.remove_users_from_list)
             return prompts.share_msg
 
         if cmd == _token_labels.TURN_INTO and tokens[1][0] == _token_labels.ADMIN:
-            admin_check(user)
-            _add_tokenized_items(user, tokens[2:], set_as_admins)
+            _admin_check(user)
+            _add_tokenized_items(user, tokens[2:], knibot_db.set_as_admins)
             return prompts.set_admins_msg
+
+        if cmd == _token_labels.HELP:
+            # check tokens[1] for specific command help
+            return prompts.greet_msg
 
     except Exception as e:
         return str(e)
