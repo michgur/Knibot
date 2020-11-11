@@ -13,9 +13,11 @@ def bot():
     incoming_msg = request.values.get('Body', '').lower()
     user = int(re.search(r'\d+', request.values.get('From')).group())
     resp = MessagingResponse()
+    resp_text = interpreter.run_command(user, incoming_msg)
     msg = resp.message()
-    msg.body(interpreter.run_command(user, incoming_msg))
-    return str(resp)
+    msg.body(resp_text)
+
+    return str(resp) if resp_text != '' else ('', 204)
 
 
 # todo:
