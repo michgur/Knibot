@@ -3,7 +3,7 @@ import re
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
-from commands import KnibotInterpreter
+import interpreter
 
 app = Flask(__name__)
 
@@ -14,7 +14,7 @@ def bot():
     user = int(re.search(r'\d+', request.values.get('From')).group())
     resp = MessagingResponse()
     msg = resp.message()
-    msg.body(KnibotInterpreter.interpret(user, incoming_msg))
+    msg.body(interpreter.run_command(user, incoming_msg))
     return str(resp)
 
 
