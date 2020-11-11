@@ -50,16 +50,61 @@ def create_list(user, list_name):
         return c.lastrowid
 
 
-def add_users_to_list(list_name, users, admins=None):
-    print('adding users %s to list %s' % (str(users), list_name))
-    if admins is None:
-        admins = []
+def add_users_to_list(user, users):
+    print('user %i is adding users %s' % (user, str(users)))
     with knibot_db.connect(commit=True) as conn:
         c = conn.cursor()
-        c.execute('SELECT id FROM lists WHERE name="%s"' % list_name)
-        working_list = c.fetchone()[0]
-        values = ', '.join("(%i, %i, %i)" % (working_list, u, 1 if u in admins else 0) for u in users)
+        working_list = get_working_list(user, c)
+        values = ', '.join('(%i, %i, 0)' % (working_list, u) for u in users)
         c.execute('INSERT INTO listsForUsers (list_id, user_id, admin) VALUES %s' % values)
+
+
+def remove_users_from_list(user, users):
+    print('user %i is removing users %s' % (user, str(users)))
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        values = ', '.join(users)
+        c.execute('DELETE FROM listsForUsers WHERE list_id=%i AND user_id IN (%s)'
+                  % (working_list, values))
+
+
+def remove_all_users_from_list(user):
+    print('user %i is removing all users' % user)
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        c.execute('DELETE FROM listsForUsers WHERE list_id=%i AND user_id!=%i'
+                  % (working_list, user))
+
+
+def remove_all_users_from_list_but(user, users):
+    print('user %i is removing all users but %s' % (user, str(users)))
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        values = ', '.join(users) + ', ' + user
+        c.execute('DELETE FROM listsForUsers WHERE list_id=%i AND user_id NOT IN (%s)'
+                  % (working_list, values))
+
+
+def set_as_admins(user, users):
+    print('user %i is setting users %s as admins' % (user, str(users)))
+    with knibot_db.connect(commit=True) as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        values = ', '.join(users)
+        c.execute('UPDATE listsForUsers SET admin=1 WHERE list_id=%i user_id IN (%s)'
+                  % (working_list, values))
+
+
+def is_admin(user):
+    print('checking if user %i is an admin' % user)
+    with knibot_db.connect() as conn:
+        c = conn.cursor()
+        working_list = get_working_list(user, c)
+        c.execute('SELECT admin FROM listsForUsers WHERE list_id=%i AND user_id=%i'
+                  % (working_list, user))
 
 
 def set_working_list(user, list_name, state=0):
