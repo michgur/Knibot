@@ -1,5 +1,4 @@
 import re
-from typing import List, Tuple, Generator
 
 import telegram
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Contact, Bot
