@@ -5,7 +5,7 @@ import interpreter
 
 TOKEN = open('token.txt', 'r').read()
 username = 'kniyot_bot'
-URL = 'https://12c111aa643f.ngrok.io/'
+URL = 'https://knibot.herokuapp.com/'
 
 bot = telegram.Bot(token=TOKEN)
 app = Flask(__name__)
