@@ -4,9 +4,8 @@ from flask import Flask, request
 import telegram
 
 import interpreter
-import prompts_he
 
-TOKEN = '1442387838:AAHjXPrVTaQiWQaeE-orOaccctdfvvxORvo'
+TOKEN = open('token.txt', 'r').read()
 username = 'kniyot_bot'
 URL = 'https://12c111aa643f.ngrok.io/'
 

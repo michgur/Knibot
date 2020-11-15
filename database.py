@@ -125,7 +125,7 @@ class knibot_db:
         c.execute('SELECT list_id FROM workingLists WHERE user_id=%i' % user)
         working_list = c.fetchone()
         if working_list is None:
-            raise LookupError('no working list for user %i' % user)
+            raise LookupError(prompts_he.no_working_list_err)
         return working_list[0]
     
     @staticmethod
