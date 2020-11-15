@@ -1,6 +1,6 @@
 import sqlite3
 
-import prompts
+import prompts_he
 
 
 class ClosingConnection:
@@ -41,7 +41,7 @@ class knibot_db:
                       'SELECT list_id FROM listsForUsers WHERE user_id=?)'
                       'AND name=?', (user, list_name))
             if c.fetchone() is not None:
-                raise ValueError(prompts.already_exists_err % list_name)
+                raise ValueError(prompts_he.already_exists_err % list_name)
             c.execute('INSERT INTO lists (name) VALUES ("%s")' % list_name)
             if user != 0:
                 c.execute('INSERT INTO listsForUsers (list_id, user_id, admin) VALUES (?, ?, 1)',
@@ -115,7 +115,7 @@ class knibot_db:
                       'AND name=?', (user, list_name))
             working_list = c.fetchone()
             if working_list is None:
-                raise ValueError(prompts.not_exists_err % list_name)
+                raise ValueError(prompts_he.not_exists_err % list_name)
             c.execute('REPLACE INTO workingLists (user_id, list_id, state) VALUES (?, ?, ?)',
                       (user, working_list[0], state))
     
@@ -142,7 +142,7 @@ class knibot_db:
             c.execute('SELECT state FROM workingLists WHERE user_id=?', (user,))
             state = c.fetchone()
             if state is None:
-                raise ValueError(prompts.no_working_list_err)
+                raise ValueError(prompts_he.no_working_list_err)
             return state[0]
     
     @staticmethod

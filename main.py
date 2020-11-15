@@ -4,11 +4,11 @@ from flask import Flask, request
 import telegram
 
 import interpreter
-import prompts
+import prompts_he
 
-TOKEN = '1442387838:AAGMYfzYDTDhAPN8cCznPlvpqtA22-tvKMI'
+TOKEN = '1442387838:AAHjXPrVTaQiWQaeE-orOaccctdfvvxORvo'
 username = 'kniyot_bot'
-URL = 'https://102d0414e1c5.ngrok.io/'
+URL = 'https://82f7ed91a857.ngrok.io/'
 
 bot = telegram.Bot(token=TOKEN)
 app = Flask(__name__)
@@ -19,13 +19,13 @@ def webhook():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
 
     incoming_msg = update.message.text.encode('utf-8').decode().lower()
-    chat_id = update.message.chat_id
     user = update.message.from_user.id
 
-    resp_text = interpreter.run_command(user, incoming_msg)\
-        if incoming_msg != '/start' else prompts.greet_msg
+    print(incoming_msg)
+    resp_text = interpreter.run_command(bot, user, incoming_msg) \
+        if incoming_msg != '/start' else prompts_he.greet_msg
     if resp_text:
-        bot.send_message(chat_id=chat_id, text=resp_text)
+        bot.send_message(chat_id=user, parse_mode='HTML', text=resp_text)
 
     return 'ok'
 
@@ -41,13 +41,11 @@ def index():
     return 'i\'m alive'
 
 # todo:
-#   SOMEWHAT DONE tidier restful code structure
-#   SOMEWHAT DONE better command parsing using tokenization, not RE
-#   DONE manage different users & lists
 #   inform users when their items are bought
-#   look into whatsapp message formatting for cooler interface
+#   look into telegram message formatting for cooler interface
 #   deploy to an actual server
 
 
 if __name__ == '__main__':
+    print('enter %ssetwebhook' % URL)
     app.run()
