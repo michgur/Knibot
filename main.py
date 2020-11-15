@@ -40,8 +40,3 @@ def index():
 #   deploy to an actual server
 #   add README
 #   move on with your life
-
-
-if __name__ == '__main__':
-    print('enter %ssetwebhook' % URL)
-    app.run()
