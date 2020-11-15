@@ -18,8 +18,11 @@ app = Flask(__name__)
 def webhook():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
 
-    incoming_msg = update.message.text.encode('utf-8').decode().lower()
     user = update.message.from_user.id
+    if update.message.contact is not None:
+        interpreter.add_contact(bot, user, update.message.contact)
+        return 'ok'
+    incoming_msg = update.message.text.encode('utf-8').decode().lower()
 
     print(incoming_msg)
     resp_text = interpreter.run_command(bot, user, incoming_msg) \
@@ -41,9 +44,10 @@ def index():
     return 'i\'m alive'
 
 # todo:
-#   inform users when their items are bought
-#   look into telegram message formatting for cooler interface
+#   add buttons & user guidance
 #   deploy to an actual server
+#   add README
+#   move on with your life
 
 
 if __name__ == '__main__':

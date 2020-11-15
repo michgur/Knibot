@@ -27,6 +27,7 @@ class knibot_db:
     STATE_DEFAULT = 0
     STATE_WRITING = 1
     STATE_ERASING = 2
+    STATE_SHARING = 3
 
     @staticmethod
     def connect(commit=False):
@@ -219,6 +220,15 @@ class knibot_db:
             c.execute('DELETE FROM items')
             c.execute('DELETE FROM workingLists')
 
+    @staticmethod
+    def get_lists_for_user(user):
+        print('fetching lists for user %i' % user)
+        with knibot_db.connect() as conn:
+            c = conn.cursor()
+            c.execute('SELECT name FROM lists WHERE id IN'
+                      '(SELECT list_id FROM listsForUsers WHERE user_id=%i)' % user)
+            return c.fetchall()
+
 
 # c.execute('CREATE TABLE lists ('
 #           'id INTEGER PRIMARY KEY,'
@@ -239,5 +249,4 @@ class knibot_db:
 #           'state INTEGER,'
 #           'FOREIGN KEY(list_id) REFERENCES lists(id))')
 if __name__ == '__main__':
-    pass
-    # knibot_db.clear()
+    knibot_db.clear()

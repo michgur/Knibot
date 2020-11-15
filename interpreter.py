@@ -2,7 +2,7 @@ import re
 from typing import List, Tuple
 
 import telegram
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Contact, Bot
 
 from database import *
 
@@ -26,6 +26,7 @@ class _token_labels:
     ADMIN = 19
     HELP = 20
     USERS = 21
+    LISTS = 22
 
     operators = {
         'שלח': SEND,
@@ -53,6 +54,7 @@ class _token_labels:
         'למנהלות': ADMIN,
         'עזרה': HELP,
         'משתתפים': USERS,
+        'רשימות': LISTS,
     }
     name_re = re.compile(r'[^,]+')
 
@@ -155,7 +157,14 @@ def _notify_users(bot: telegram.Bot, buyer: int, items: list = None):
 
 class _inline_buttons:
     SEND = InlineKeyboardButton(text=prompts_he.send_btn, switch_inline_query_current_chat='שלח')
-    LIST = InlineKeyboardButton(text=prompts_he.list_btn, switch_inline_query_current_chat='שלח')
+    LIST = InlineKeyboardButton(text=prompts_he.list_btn, switch_inline_query_current_chat='רשימה ')
+    LISTS = InlineKeyboardButton(text=prompts_he.lists_btn, switch_inline_query_current_chat='רשימות')
+    NEW_LIST = InlineKeyboardButton(text=prompts_he.new_list_btn, switch_inline_query_current_chat='רשימה חדשה ')
+    WRITE = InlineKeyboardButton(text=prompts_he.write_btn, switch_inline_query_current_chat='תרשום ')
+    REMOVE = InlineKeyboardButton(text=prompts_he.remove_btn, switch_inline_query_current_chat='תמחק ')
+    REMOVE_ALL = InlineKeyboardButton(text=prompts_he.remove_all_btn, switch_inline_query_current_chat='תמחק הכול')
+    BUY = InlineKeyboardButton(text=prompts_he.bought_btn, switch_inline_query_current_chat='קניתי ')
+    BUY_BUT = InlineKeyboardButton(text=prompts_he.bought_but_btn, switch_inline_query_current_chat='קניתי הכול חוץ מ')
 
 
 def run_command(bott, user, message):
@@ -182,7 +191,8 @@ def run_command(bott, user, message):
             items_text = '\n'.join('• <code>' + r[0] + '</code> (' + prompts_he.mention(bot.get_chat(r[2])) + ')'
                                    for r in items_raw)
             text = prompts_he.send_msg + items_text if items_text != '' else prompts_he.empty_list_err
-            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(text='shalom', switch_inline_query_current_chat='shalomm')]])
+            keyboard = InlineKeyboardMarkup(
+                [[InlineKeyboardButton(text='shalom', switch_inline_query_current_chat='shalomm')]])
             bot.send_message(chat_id=user, text=text, reply_markup=keyboard)
             return ''
 
@@ -219,7 +229,8 @@ def run_command(bott, user, message):
             state = knibot_db.get_working_state(user)
             knibot_db.set_working_state(user, knibot_db.STATE_DEFAULT)
             return prompts_he.finish_write_msg if state == knibot_db.STATE_WRITING \
-                else prompts_he.finish_remove_msg
+                else prompts_he.finish_remove_msg if state == knibot_db.STATE_ERASING \
+                else prompts_he.finish_share_msg
 
         if cmd == _token_labels.BOUGHT:
             if len(tokens) == 1:
@@ -228,15 +239,18 @@ def run_command(bott, user, message):
                    _remove_tokenized_items(user, tokens[1:])
 
         if cmd == _token_labels.SHARE:
-            users = [(u[0], int(u[1])) for u in tokens[1:]]
-            _add_tokenized_items(user, users,
-                                 knibot_db.add_users_to_list, knibot_db.remove_users_from_list)
+            knibot_db.set_working_state(user, knibot_db.STATE_SHARING)
             return prompts_he.share_msg
 
         if cmd == _token_labels.TURN_INTO and tokens[1][0] == _token_labels.ADMIN:
             _admin_check(user)
             _add_tokenized_items(user, tokens[2:], knibot_db.set_as_admins)
             return prompts_he.set_admins_msg
+
+        if cmd == _token_labels.LISTS:
+            lists_raw = knibot_db.get_lists_for_user(user)
+            lists_string = '\n'.join('• <code>%s</code>' % l[0] for l in lists_raw)
+            return prompts_he.no_lists_err if not lists_string else lists_string
 
         if cmd == _token_labels.HELP:
             # check tokens[1] for specific command help
@@ -246,6 +260,13 @@ def run_command(bott, user, message):
         print(e)
         return str(e)
     return prompts_he.unrecognized_msg_err
+
+
+def add_contact(bot: Bot, user: int, contact: Contact):
+    if knibot_db.get_working_state(user) == knibot_db.STATE_SHARING:
+        knibot_db.add_users_to_list(user, contact.user_id)
+    else:
+        bot.send_message(chat_id=user, text=prompts_he.unrecognized_msg_err)
 
 
 if __name__ == '__main__':
