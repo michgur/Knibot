@@ -1,9 +1,10 @@
 from flask import Flask, request
 import telegram
+import os
 
 import interpreter
 
-TOKEN = open('token.txt', 'r').read()
+TOKEN = os.environ.get('TOKEN', None)
 username = 'kniyot_bot'
 URL = 'https://knibot.herokuapp.com/'
 
