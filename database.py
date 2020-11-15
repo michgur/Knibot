@@ -130,7 +130,7 @@ class knibot_db:
     
     @staticmethod
     def set_working_state(user, state):
-        print('setting working state for user %i as %s' % (user, {0: 'default', 1: 'write', 2: 'erase'}[state]))
+        print('setting working state for user %i as %s' % (user, {0: 'default', 1: 'write', 2: 'erase', 3: 'share'}[state]))
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             c.execute('UPDATE workingLists SET state=? WHERE user_id=?', (state, user))

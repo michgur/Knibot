@@ -2,9 +2,30 @@ from typing import List, Union
 
 import telegram
 
-greet_msg = '''שלום, אני קניבוט, בוט הקניות.🤖
-אני עוזר לנהל רשימות קניות משותפות בין כמה משתתפים 📝.
-'''
+
+def list_to_string(l: List[str]) -> str:
+    if len(l) == 0:
+        return ''
+    if len(l) == 1:
+        return l[0]
+    return ', '.join(l[:-1]) + ' ' + vav + l[-1]
+
+
+def everything_but(l: List[str], everything_str: str = 'הכול') -> str:
+    if len(l) == 0:
+        return everything_str
+    return everything_str + ' ' + except_for + list_to_string(l)
+
+
+def mention(user: Union[telegram.User, telegram.Chat], text=None):
+    return '<a href="tg://user?id=%i">%s</a>' % (user.id, user.first_name if text is None else text)
+
+
+def wrap_in_code_tag(text: str) -> str:
+    return '`<u>%s</u>`' % text
+
+
+greet_msg = 'שלום, לקבלת עזרה ניתן ללחוץ על אחד מהכפתורים ששלחתי או לשלוח לי "עזרה"\n'
 send_cmd = 'שלח'
 send_msg = 'הנה הרשימה:\n'
 write_cmd = 'רשום'
@@ -31,6 +52,7 @@ no_working_list_err = 'לא פתחת אף רשימה...'
 default_working_state_err = 'לא הבנתי מה לעשות עם מה שכתבת...'
 empty_list_err = 'הרשימה ריקה...'
 no_lists_err = 'אין לך גישה לאף רשימה...'
+no_users_err = 'אין משתתפים ברשימה חוץ ממך'
 mem = 'מ'
 vav = 'ו'
 everything = 'הכול'
@@ -45,30 +67,49 @@ set_admins_msg = 'הפכתי את המשתמשים למנהלים'
 unrecognized_msg_err = 'סליחה, לא הבנתי את ההודעה שלך. לקבלת עזרה ניתן לשלוח "עזרה"'
 exception_err = 'סליחה, חלה תקלה:\n'
 not_admin_err = 'סליחה, לא ניתן לבצע את הפעולה ללא הרשאות מנהל. ניתן לבקש הרשאות מאחד המנהלים של הרשימה'
-send_btn = 'שליחת הרשימה הנוכחית'
+no_name_err = 'לא כתבת את שם הרשימה'
+send_btn = 'הצגת הרשימה הנוכחית'
 list_btn = 'עריכת רשימה אחרת'
 lists_btn = 'הצגת כלל הרשימות'
+users_btn = 'הצגת המשתתפים ברשימה הנוכחית'
 new_list_btn = 'יצירת רשימה חדשה'
-write_btn = 'הוספת פריטים לרשימה'
-remove_btn = 'הסרת פריטים מהרשימה'
-remove_all_btn = 'הסרת כל הפריטים מהרשימה'
+write_btn = 'הוספת פריטים'
+remove_btn = 'הסרת פריטים'
+remove_all_btn = 'הסרת כל הפריטים'
 bought_btn = 'קניתי הכול'
 bought_but_btn = 'קניתי הכול חוץ מ-'
-
-
-def list_to_string(l: List[str]) -> str:
-    if len(l) == 0:
-        return ''
-    if len(l) == 1:
-        return l[0]
-    return ', '.join(l[:-1]) + ' ' + vav + l[-1]
-
-
-def everything_but(l: List[str], everything_str: str = everything) -> str:
-    if len(l) == 0:
-        return everything_str
-    return everything_str + ' ' + except_for + list_to_string(l)
-
-
-def mention(user: Union[telegram.User, telegram.Chat], text=None):
-    return '<a href="tg://user?id=%i">%s</a>' % (user.id, user.first_name if text is None else text)
+share_btn = 'הוספת משתתפים לרשימה'
+help_btn = 'עזרה'
+help_msg = 'באיזה נושא ברצונך לקבל עזרה?'
+new_list_help = 'ליצירת רשימה חדשה:\n<code>רשימה חדשה &lt;שם הרשימה&gt;</code>'
+list_help = 'לעריכת רשימה קיימת:\n<code>רשימה &lt;שם הרשימה&gt;</code>'
+lists_help = 'להצגת כלל הרשימות שיש לך גישה אליהן:\n<code>רשימות</code>'
+share_help = 'לשיתוף הרשימה הנוכחית עם משתתפים נוספים:\n<code>שתף</code>\nלאחר מכן, ניתן לצרף בהודעות את אנשי הקשר ' \
+             'שברצונך לשתף.\nלאחר שליחת כלל אנשי הקשר יש לשלוח "זהו" '
+users_help = 'להצגת כלל המשתתפים ברשימה הנוכחית:\n<code>משתתפים</code>'
+write_help = 'ישנן שתי דרכים להוספת פריטים לרשימה:\n• ' + \
+             wrap_in_code_tag('תרשום') + \
+             ', ולאחר מכן לשלוח את הפריטים בהודעות נפרדות ובסיום לשלוח "זהו"\n• ' + \
+             wrap_in_code_tag('תרשום &lt;פריט אחד או יותר&gt;') + \
+             ', עם פסיק בין כל פריט ופריט\nניתן להחליף פריט קיים בפריט אחר בהודעה אחת, לדוגמה: ' + \
+             wrap_in_code_tag('תרשום מלפפון במקום עגבניה') + \
+             '\nהמשתתפים האחרים ברשימה יוכלו לצפות בפריטים ששלחת, וברגע שמישהו מהם יקנה את הפריטים אני אעדכן אותך'
+remove_help = 'ישנן שתי דרכים למחיקת פריטים מהרשימה:\n• %s, ולאחר מכן לשלוח את הפריטים בהודעות נפרדות ' \
+              'ובסיום לשלוח "זהו"\n• %s, עם פסיק בין כל פריט ופריט\nניתן ' \
+              'למחוק את כל הפריטים בהודעה אחת באופן הבא:%s\nניתן למחוק את כל הפריטים חוץ מכמה ' \
+              'פריטים מסוימים באופן הבא:\n%s ' % (
+                  wrap_in_code_tag('תמחק'),
+                  wrap_in_code_tag('תמחק &lt;פריט אחד או יותר&gt;'),
+                  wrap_in_code_tag('תמחק הכול'),
+                  wrap_in_code_tag('תמחק הכול חוץ מ&lt;פריט אחד או יותר&gt;')
+              )
+bought_help = 'לעדכון על ביצוע קניה:\n%s, עם פסיק בין כל פריט ופריט\nניתן ' \
+              'לעדכן על קניה של כל הפריטים בהודעה אחת באופן הבא:\n%s או פשוט ' \
+              '%s\nניתן לעדכן על קניה של כל הפריטים חוץ מכמה פריטים מסוימים באופן הבא:\n%s ' \
+              '\nלאחר שליחת ההודעה הרשימה תתעדכן ושאר המשתמשים יקבלו הודעה ' \
+              'על הקניה שביצעת ' % (
+                  wrap_in_code_tag('קניתי &lt;פריט אחד או יותר&gt;'),
+                  wrap_in_code_tag('קניתי הכול'),
+                  wrap_in_code_tag('קניתי'),
+                  wrap_in_code_tag('קניתי הכול חוץ מ&lt;פריט אחד או יותר&gt;')
+              )
