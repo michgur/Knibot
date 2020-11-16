@@ -2,7 +2,7 @@
 
 # Knibot
 ### A (hebrew-speaking) shared grocery lists management telegram bot
-Knibot can help you create and manage shopping lists, and share them with frinds & family!
+Knibot can help you create and manage shopping lists, and share them with friends & family!
 
 ### Where can it be found?
 In telegram, look for `קניבוט` or `kniyot_bot`. Knibot will then provide help on how to create and share lists.
