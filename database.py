@@ -9,7 +9,7 @@ class ClosingConnection:
         self.commit = commit
 
     def __enter__(self) -> psycopg2._psycopg.connection:
-        self.conn = psycopg2.connect(host='localhost', database='knibot', user='postgres', password='')
+        self.conn = psycopg2.connect(host='localhost', database='knibot', user='postgres', password='nunhiyruk')
         return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -259,8 +259,4 @@ class knibot_db:
 
 
 if __name__ == '__main__':
-    knibot_db.create()
-    user = 100
-    knibot_db.create_list(user, 'poo')
-    knibot_db.set_working_list(user, 'poo')
-    knibot_db.add_items(user, ['a', 'b', 'c'])
+    knibot_db.clear()

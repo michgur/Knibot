@@ -3,6 +3,7 @@ import telegram
 import os
 
 import interpreter
+from database import knibot_db
 
 TOKEN = os.environ.get('TOKEN', None)
 username = 'kniyot_bot'
@@ -30,6 +31,15 @@ def webhook():
 def set_webhook():
     s = bot.set_webhook('%s%s' % (URL, TOKEN))
     return 'setup successful' if s else 'setup failed'
+
+
+@app.route('/cleardb', methods=['POST', 'GET'])
+def clear_db():
+    try:
+        knibot_db.clear()
+        return 'success'
+    except Exception as e:
+        return 'failure: ' + str(e)
 
 
 @app.route('/')

@@ -344,11 +344,7 @@ def add_contact(bot: Bot, user: int, contact: Contact) -> None:
             bot.send_message(chat_id=user, text=prompts_he.unrecognized_msg_err)
     except psycopg2.DatabaseError as e:
         print('exception: ' + str(e))
-        response = prompts_he.db_access_err
+        bot.send_message(chat_id=user, text=prompts_he.db_access_err)
     except Exception as e:
         print('exception: ' + str(e))
         bot.send_message(chat_id=user, text=str(e))
-
-
-if __name__ == '__main__':
-    print(*zip(*[('a',), ('b',), ('c',)]))
