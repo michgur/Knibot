@@ -325,6 +325,9 @@ def run_command(bott: telegram.Bot, user: int, message: str) -> None:
             response = prompts_he.unrecognized_msg_err
             buttons = [[_inline_buttons.HELP]]
 
+    except psycopg2.DatabaseError as e:
+        print('exception: ' + str(e))
+        response = prompts_he.db_access_err
     except Exception as e:
         print('exception: ' + str(e))
         response = str(e)
@@ -339,6 +342,9 @@ def add_contact(bot: Bot, user: int, contact: Contact) -> None:
             knibot_db.add_users_to_list(user, [contact.user_id])
         else:
             bot.send_message(chat_id=user, text=prompts_he.unrecognized_msg_err)
+    except psycopg2.DatabaseError as e:
+        print('exception: ' + str(e))
+        response = prompts_he.db_access_err
     except Exception as e:
         print('exception: ' + str(e))
         bot.send_message(chat_id=user, text=str(e))

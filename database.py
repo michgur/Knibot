@@ -1,4 +1,4 @@
-import sqlite3
+import psycopg2
 
 import prompts_he
 
@@ -8,8 +8,8 @@ class ClosingConnection:
         self.path = path
         self.commit = commit
 
-    def __enter__(self):
-        self.conn = sqlite3.connect(self.path)
+    def __enter__(self) -> psycopg2._psycopg.connection:
+        self.conn = psycopg2.connect(host='localhost', database='knibot', user='postgres', password='')
         return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -34,20 +34,57 @@ class knibot_db:
         return ClosingConnection(knibot_db.path, commit)
 
     @staticmethod
+    def create():
+        print('creating tables')
+        with knibot_db.connect(commit=True) as conn:
+            c = conn.cursor()
+            c.execute('DROP TABLE IF EXISTS lists CASCADE')
+            c.execute('DROP TABLE IF EXISTS listsForUsers')
+            c.execute('DROP TABLE IF EXISTS items')
+            c.execute('DROP TABLE IF EXISTS workingLists')
+            c.execute('CREATE TABLE lists ('
+                      'id SERIAL PRIMARY KEY,'
+                      'name TEXT NOT NULL)')
+            c.execute('CREATE TABLE listsForUsers ('
+                      'list_id INTEGER REFERENCES lists ON DELETE CASCADE,'
+                      'user_id INTEGER,'
+                      'admin INTEGER)')
+            c.execute('CREATE TABLE items ('
+                      'name TEXT NOT NULL,'
+                      'list_id INTEGER REFERENCES lists ON DELETE CASCADE,'
+                      'request_by INTEGER)')
+            c.execute('CREATE TABLE workingLists ('
+                      'user_id INTEGER UNIQUE,'
+                      'list_id INTEGER REFERENCES lists ON DELETE CASCADE,'
+                      'state INTEGER)')
+
+    @staticmethod
+    def clear():
+        print('clearing database')
+        with knibot_db.connect(commit=True) as conn:
+            c = conn.cursor()
+            c.execute('DELETE FROM listsForUsers')
+            c.execute('DELETE FROM lists')
+            c.execute('DELETE FROM items')
+            c.execute('DELETE FROM workingLists')
+
+    @staticmethod
     def create_list(user, list_name):
         print('%i is creating a new list %s' % (user, list_name))
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             c.execute('SELECT id FROM lists WHERE id IN ('
-                      'SELECT list_id FROM listsForUsers WHERE user_id=?)'
-                      'AND name=?', (user, list_name))
+                      'SELECT list_id FROM listsForUsers WHERE user_id=%i)'
+                      'AND name=\'%s\'' % (user, list_name))
             if c.fetchone() is not None:
                 raise ValueError(prompts_he.already_exists_err % list_name)
-            c.execute('INSERT INTO lists (name) VALUES ("%s")' % list_name)
+            c.execute('INSERT INTO lists (name) VALUES (\'%s\')' % list_name)
+            c.execute('SELECT LASTVAL()')
+            list_id = c.fetchone()[0]
             if user != 0:
-                c.execute('INSERT INTO listsForUsers (list_id, user_id, admin) VALUES (?, ?, 1)',
-                          (c.lastrowid, user))
-            return c.lastrowid
+                c.execute('INSERT INTO listsForUsers (list_id, user_id, admin) VALUES (%i, %i, 1)' %
+                          (list_id, user))
+            return list_id
     
     @staticmethod
     def add_users_to_list(user, users):
@@ -112,12 +149,13 @@ class knibot_db:
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             c.execute('SELECT id FROM lists WHERE id IN ('
-                      'SELECT list_id FROM listsForUsers WHERE user_id=?)'
-                      'AND name=?', (user, list_name))
+                      'SELECT list_id FROM listsForUsers WHERE user_id=%i)'
+                      'AND name=\'%s\'' % (user, list_name))
             working_list = c.fetchone()
             if working_list is None:
                 raise ValueError(prompts_he.not_exists_err % list_name)
-            c.execute('REPLACE INTO workingLists (user_id, list_id, state) VALUES (?, ?, ?)',
+            c.execute('INSERT INTO workingLists (user_id, list_id, state) VALUES (%i, %i, %i)'
+                      'ON CONFLICT (user_id) DO UPDATE SET list_id=EXCLUDED.list_id, state=EXCLUDED.state' %
                       (user, working_list[0], state))
     
     @staticmethod
@@ -133,14 +171,14 @@ class knibot_db:
         print('setting working state for user %i as %s' % (user, {0: 'default', 1: 'write', 2: 'erase', 3: 'share'}[state]))
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
-            c.execute('UPDATE workingLists SET state=? WHERE user_id=?', (state, user))
+            c.execute('UPDATE workingLists SET state=%i WHERE user_id=%i' % (state, user))
     
     @staticmethod
     def get_working_state(user):
         print('fetching working state for user %i' % user)
         with knibot_db.connect() as conn:
             c = conn.cursor()
-            c.execute('SELECT state FROM workingLists WHERE user_id=?', (user,))
+            c.execute('SELECT state FROM workingLists WHERE user_id=%i' % user)
             state = c.fetchone()
             if state is None:
                 raise ValueError(prompts_he.no_working_list_err)
@@ -152,7 +190,7 @@ class knibot_db:
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             working_list = knibot_db.get_working_list(user, c)
-            values = ', '.join('("%s", %i, %i)' % (i, working_list, user) for i in items)
+            values = ', '.join('(\'%s\', %i, %i)' % (i, working_list, user) for i in items)
             c.execute('INSERT INTO items (name, list_id, request_by) VALUES %s' % values)
     
     @staticmethod
@@ -161,7 +199,7 @@ class knibot_db:
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             working_list = knibot_db.get_working_list(user, c)
-            values = ', '.join('"%s"' % i for i in items)
+            values = ', '.join('\'%s\'' % i for i in items)
             c.execute('DELETE FROM items WHERE list_id=%i AND name IN (%s)'
                       % (working_list, values))
     
@@ -178,7 +216,7 @@ class knibot_db:
         with knibot_db.connect(commit=True) as conn:
             c = conn.cursor()
             working_list = knibot_db.get_working_list(user, c)
-            values = ', '.join('"%s"' % i for i in items)
+            values = ', '.join('\'%s\'' % i for i in items)
             c.execute('DELETE FROM items WHERE list_id=%i AND name NOT IN (%s)' %
                       (working_list, values))
     
@@ -206,19 +244,9 @@ class knibot_db:
         with knibot_db.connect() as conn:
             c = conn.cursor()
             working_list = knibot_db.get_working_list(user, c)
-            values = ', '.join('"%s"' % i for i in items)
+            values = ', '.join('\'%s\'' % i for i in items)
             c.execute('SELECT name FROM items WHERE list_id=%i AND name IN (%s)' % (working_list, values))
             return [item[0] for item in c.fetchall()]
-
-    @staticmethod
-    def clear():
-        print('clearing database')
-        with knibot_db.connect(commit=True) as conn:
-            c = conn.cursor()
-            c.execute('DELETE FROM listsForUsers')
-            c.execute('DELETE FROM lists')
-            c.execute('DELETE FROM items')
-            c.execute('DELETE FROM workingLists')
 
     @staticmethod
     def get_lists_for_user(user):
@@ -230,23 +258,9 @@ class knibot_db:
             return c.fetchall()
 
 
-# c.execute('CREATE TABLE lists ('
-#           'id INTEGER PRIMARY KEY,'
-#           'name TEXT NOT NULL)')
-# c.execute('CREATE TABLE listsForUsers ('
-#           'list_id INTEGER,'
-#           'user_id INTEGER,'
-#           'admin INTEGER,'
-#           'FOREIGN KEY(list_id) REFERENCES lists(id))')
-# c.execute('CREATE TABLE items ('
-#           'name TEXT NOT NULL,'
-#           'list_id INTEGER,'
-#           'request_by INTEGER,'
-#           'FOREIGN KEY(list_id) REFERENCES lists(id))')
-# c.execute('CREATE TABLE workingLists ('
-#           'user_id INTEGER UNIQUE,'
-#           'list_id INTEGER,'
-#           'state INTEGER,'
-#           'FOREIGN KEY(list_id) REFERENCES lists(id))')
 if __name__ == '__main__':
-    knibot_db.clear()
+    knibot_db.create()
+    user = 100
+    knibot_db.create_list(user, 'poo')
+    knibot_db.set_working_list(user, 'poo')
+    knibot_db.add_items(user, ['a', 'b', 'c'])

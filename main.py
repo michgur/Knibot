@@ -37,6 +37,6 @@ def index():
     return 'i\'m alive'
 
 # todo:
-#   deploy to an actual server
+#   migrate to postgresql
 #   add README
 #   move on with your life
