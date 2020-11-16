@@ -7,8 +7,7 @@ import prompts_he
 
 
 class ClosingConnection:
-    def __init__(self, path, commit):
-        self.path = path
+    def __init__(self, commit):
         self.commit = commit
 
     def __enter__(self) -> psycopg2._psycopg.connection:
@@ -41,7 +40,7 @@ class knibot_db:
 
     @staticmethod
     def connect(commit=False):
-        return ClosingConnection(knibot_db.path, commit)
+        return ClosingConnection(commit)
 
     @staticmethod
     def create():
