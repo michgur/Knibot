@@ -33,6 +33,15 @@ def set_webhook():
     return 'setup successful' if s else 'setup failed'
 
 
+@app.route('/initdb', methods=['POST', 'GET'])
+def init_db():
+    try:
+        knibot_db.create()
+        return 'success'
+    except Exception as e:
+        return 'failure: ' + str(e)
+
+
 @app.route('/cleardb', methods=['POST', 'GET'])
 def clear_db():
     try:

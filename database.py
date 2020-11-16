@@ -1,3 +1,6 @@
+import os
+from urllib.parse import urlparse
+
 import psycopg2
 
 import prompts_he
@@ -9,7 +12,7 @@ class ClosingConnection:
         self.commit = commit
 
     def __enter__(self) -> psycopg2._psycopg.connection:
-        self.conn = psycopg2.connect(host='localhost', database='knibot', user='postgres', password='nunhiyruk')
+        self.conn = psycopg2.connect(**knibot_db.CONFIG)
         return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -22,7 +25,14 @@ class ClosingConnection:
 
 
 class knibot_db:
-    path = './knibot.db'
+    URL = urlparse(os.environ.get('DATABASE_URL', None))
+    CONFIG = {
+        'host': URL.hostname,
+        'port': URL.port,
+        'database': URL.path[1:],
+        'user': URL.username,
+        'password': URL.password
+    }
 
     STATE_DEFAULT = 0
     STATE_WRITING = 1
@@ -259,4 +269,4 @@ class knibot_db:
 
 
 if __name__ == '__main__':
-    knibot_db.clear()
+    pass
