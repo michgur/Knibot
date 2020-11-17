@@ -342,6 +342,9 @@ def add_contact(bot: Bot, user: int, contact: Contact) -> None:
             knibot_db.add_users_to_list(user, [contact.user_id])
         else:
             bot.send_message(chat_id=user, text=prompts_he.unrecognized_msg_err)
+    except TypeError as e:
+        print('exception: ' + str(e))
+        bot.send_message(chat_id=user, text=prompts_he.no_tg_user_err)
     except psycopg2.DatabaseError as e:
         print('exception: ' + str(e))
         bot.send_message(chat_id=user, text=prompts_he.db_access_err)
